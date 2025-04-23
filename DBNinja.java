@@ -1,7 +1,10 @@
 package cpsc4620;
 
+import com.mysql.cj.x.protobuf.MysqlxPrepare;
+
 import java.io.IOException;
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.*;
 
 /*
@@ -133,7 +136,7 @@ public final class DBNinja {
 	 {
 	/*
 	 * Return an ArrayList of orders.
-	 * 	status   == 1 => return a list of open (ie oder is not completed)
+	 * 	status   == 1 => return a list of open (ie order is not completed)
 	 *           == 2 => return a list of completed orders (ie order is complete)
 	 *           == 3 => return a list of all the orders
 	 * Remember that in Java, we account for supertypes and subtypes
@@ -146,7 +149,184 @@ public final class DBNinja {
 	 * Don't forget to order the data coming from the database appropriately.
 	 *
 	 */
-		return null;
+		 connect_to_db();
+
+		 ArrayList<Order> orderList = new ArrayList<>();
+		 try {
+			 PreparedStatement os;
+			 ResultSet rset;
+			 String query = switch (status) {
+                 case 1 -> "Select * From ordertable Where ordertable_isComplete = False;";
+                 case 2 -> "Select * From ordertable Where ordertable_isComplete = True;";
+                 case 3 -> "Select * From ordertable;";
+				 default -> throw new IllegalStateException("Unexpected value: " + status);
+			 };
+             os = conn.prepareStatement(query);
+			 rset = os.executeQuery();
+			 while (rset.next()) {
+				 Order nextOrder = null;
+				 int orderID = rset.getInt("ordertable_OrderID");
+				 /* ==============================================================
+				  * SWITCH statement for Dine-in, Pickup, and Delivery
+				  * =============================================================== */
+                 switch (rset.getString("ordertable_OrderType")) {
+                     case "Dine-in" -> {
+                         // Retrieving the extra values that are included in a Dine-in order
+                         PreparedStatement dine_os;
+                         ResultSet rsetDine;
+                         String dineQuery = "Select * From dinein Where ordertable_OrderID = ?;";
+                         dine_os = conn.prepareStatement(dineQuery);
+                         dine_os.setInt(1, orderID);
+                         rsetDine = dine_os.executeQuery();
+						 rsetDine.next();
+                         nextOrder = new DineinOrder(orderID, rset.getInt("customer_CustID"),
+                                 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+                                 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
+                                 rsetDine.getInt("dinein_TableNum"));
+                     }
+                     case "Pickup" -> {
+                         // Retrieving the extra values that are included in a Pickup order
+                         PreparedStatement pickup_os;
+                         ResultSet rsetPick;
+                         String pickQuery = "Select * From pickup Where ordertable_OrderID = ?;";
+                         pickup_os = conn.prepareStatement(pickQuery);
+                         pickup_os.setInt(1, orderID);
+                         rsetPick = pickup_os.executeQuery();
+						 rsetPick.next();
+                         nextOrder = new PickupOrder(orderID, rset.getInt("customer_CustID"),
+                                 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+                                 rset.getDouble("ordertable_BusPrice"), rsetPick.getBoolean("pickup_IsPickedUp"),
+                                 rset.getBoolean("ordertable_isComplete"));
+                     }
+                     case "Delivery" -> {
+                         // Retrieving the extra values that are included in a Delivery order
+                         PreparedStatement deliver_os;
+                         ResultSet rsetDeliv;
+                         String delivQuery = "Select * From delivery Where ordertable_OrderID = ?;";
+                         deliver_os = conn.prepareStatement(delivQuery);
+                         deliver_os.setInt(1, orderID);
+                         rsetDeliv = deliver_os.executeQuery();
+						 rsetDeliv.next();
+                         String address = rsetDeliv.getString("delivery_HouseNum") + " " + rsetDeliv.getString("delivery_Street") +
+                                 " " + rsetDeliv.getString("delivery_City") + ", " + rsetDeliv.getString("delivery_State") + " " +
+                                 rsetDeliv.getString("delivery_Zip");
+                         nextOrder = new DeliveryOrder(orderID, rset.getInt("customer_CustID"),
+                                 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+                                 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
+                                 address);
+                     }
+                 }
+
+				 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				 // Getting all the pizzas for the order into a list
+				 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+				 PreparedStatement osPizzas;
+				 ResultSet rsetPizzas;
+				 String pizzasQuery;
+				 pizzasQuery = "Select * From pizza Where ordertable_OrderID = ?;";
+				 osPizzas = conn.prepareStatement(pizzasQuery);
+				 osPizzas.setInt(1, orderID);
+				 rsetPizzas = osPizzas.executeQuery();
+				 ArrayList<Pizza> pizzaList = new ArrayList<>();
+
+				 while (rsetPizzas.next()) {
+					 // System.out.println("New pizza");
+					 Pizza nextPizza = new Pizza(rsetPizzas.getInt("pizza_PizzaID"), rsetPizzas.getString("pizza_Size"),
+							 rsetPizzas.getString("pizza_CrustType"), rsetPizzas.getInt("ordertable_OrderID"),
+							 rsetPizzas.getString("pizza_PizzaState"), rsetPizzas.getString("pizza_PizzaDate"),
+							 rsetPizzas.getDouble("pizza_CustPrice"), rsetPizzas.getDouble("pizza_BusPrice"));
+
+					 /* ==============================================================
+					  * Getting toppings for each pizza
+					  * =============================================================== */
+					 int pizzaID = rsetPizzas.getInt("pizza_PizzaID");
+					 PreparedStatement osTops;
+					 ResultSet rsetTops;
+					 String topsQuery;
+					 topsQuery = "SELECT * FROM TOPPING JOIN PIZZA_TOPPING ON TOPPING.topping_TopID = PIZZA_TOPPING.topping_TopID\n" +
+							 "    JOIN PIZZA ON PIZZA_TOPPING.pizza_PizzaID = PIZZA.pizza_PizzaID WHERE PIZZA_TOPPING.pizza_PizzaID=?;";
+					 osTops = conn.prepareStatement(topsQuery);
+					 osTops.setInt(1, pizzaID);
+					 rsetTops = osTops.executeQuery();
+					 ArrayList<Topping> topsList = new ArrayList<>();
+					 while (rsetTops.next()) {
+						 Topping nextTopping = new Topping(rsetTops.getInt("topping_TopID"), rsetTops.getString("topping_TopName"), rsetTops.getDouble("topping_SmallAMT"),
+								 rsetTops.getDouble("topping_MedAMT"), rsetTops.getDouble("topping_LgAMT"), rsetTops.getDouble("topping_XLAMT"), rsetTops.getDouble("topping_CustPrice"),
+								 rsetTops.getDouble("topping_BusPrice"), rsetTops.getInt("topping_MinINVT"), rsetTops.getInt("topping_CurINVT"));
+						 // nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
+						 nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
+						 // System.out.println(rsetTops.getBoolean("pizza_topping_IsDouble"));
+						 topsList.add(nextTopping);
+						 // nextPizza.addToppings(nextTopping, rsetTops.getBoolean("pizza_topping_IsDouble"));
+					 }
+					 nextPizza.setToppings(topsList);
+
+					 /* ==============================================================
+					  * Getting discount(s) for each pizza
+					  * =============================================================== */
+
+					 PreparedStatement osDiscs;
+					 ResultSet rsetDiscs;
+					 String discsQuery;
+					 discsQuery = "SELECT * FROM DISCOUNT JOIN PIZZA_DISCOUNT ON DISCOUNT.discount_DiscountID = PIZZA_DISCOUNT.discount_DiscountID\n" +
+							 "    JOIN PIZZA ON PIZZA_DISCOUNT.pizza_PizzaID = PIZZA.pizza_PizzaID WHERE PIZZA_DISCOUNT.pizza_PizzaID=?;";
+					 osDiscs = conn.prepareStatement(discsQuery);
+					 osDiscs.setInt(1, pizzaID);
+					 rsetDiscs = osDiscs.executeQuery();
+					 ArrayList<Discount> discsList = new ArrayList<>();
+					 if (rsetDiscs.isBeforeFirst() ) {
+						 while (rsetDiscs.next()) {
+							 Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"), rsetDiscs.getString("discount_DiscountName"), rsetDiscs.getDouble("discount_Amount"), rsetDiscs.getBoolean("discount_IsPercent"));
+							 discsList.add(nextDiscount);
+						 }
+						 nextPizza.setDiscounts(discsList);
+					 }
+
+					 /* ==============================================================
+					  * Add pizza to the current list of pizzas
+					  * =============================================================== */
+					 pizzaList.add(nextPizza);
+				 }
+
+				 /* ==============================================================
+				  * Getting all the discounts for the order into a list
+				  * =============================================================== */
+				 PreparedStatement osDiscs;
+				 ResultSet rsetDiscs;
+				 String discsQuery;
+				 discsQuery = "SELECT * FROM DISCOUNT JOIN ORDER_DISCOUNT ON DISCOUNT.discount_DiscountID = ORDER_DISCOUNT.discount_DiscountID \n" +
+						 "JOIN ORDERTABLE ON ORDER_DISCOUNT.ordertable_OrderID = ORDERTABLE.ordertable_OrderID Where ORDERTABLE.ordertable_OrderID = ?";
+				 osDiscs = conn.prepareStatement(discsQuery);
+				 osDiscs.setInt(1, orderID);
+				 rsetDiscs = osDiscs.executeQuery();
+				 ArrayList<Discount> discsList = new ArrayList<>();
+				 if (!rsetDiscs.isBeforeFirst() ) {
+					 // Print out statement to check for orders with no discounts
+					 // System.out.println("No discounts found for order " + nextOrder.getOrderID());
+				 } else {
+					 while (rsetDiscs.next()) {
+						 Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"), rsetDiscs.getString("discount_DiscountName"), rsetDiscs.getDouble("discount_Amount"), rsetDiscs.getBoolean("discount_IsPercent"));
+						 discsList.add(nextDiscount);
+					 }
+				 }
+
+				 /* ==============================================================
+				  * Add the pizza list and the discount list to the order
+				  * =============================================================== */
+				 nextOrder.setPizzaList(pizzaList);
+				 nextOrder.setDiscountList(discsList);
+				 orderList.add(nextOrder);
+			 }
+
+		 } catch (SQLException e) {
+			 e.printStackTrace();
+		 }
+
+		 conn.close();
+		 return orderList;
 	}
 	
 	public static Order getLastOrder() throws SQLException, IOException 
@@ -176,7 +356,27 @@ public final class DBNinja {
 		 * return them in an arrayList of discounts ordered by discount name.
 		 * 
 		*/
-		return null;
+		connect_to_db();
+
+		ArrayList<Discount> discountList = new ArrayList<>();
+		try {
+			PreparedStatement os;
+			ResultSet rset;
+			String query;
+			query = "Select discount_DiscountID, discount_DiscountName, discount_Amount, discount_IsPercent From discount;";
+			os = conn.prepareStatement(query);
+			rset = os.executeQuery();
+			while (rset.next()) {
+				Discount nextDiscount = new Discount(rset.getInt("discount_DiscountID"), rset.getString("discount_Name"), rset.getDouble("discount_Amount"), rset.getBoolean("discount_IsPercent"));
+				discountList.add(nextDiscount);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+			// process the error or re-raise the exception to a higher level
+		}
+
+		conn.close();
+		return discountList;
 	}
 
 	public static Discount findDiscountByName(String name) throws SQLException, IOException 
