@@ -132,6 +132,9 @@ public final class DBNinja {
 	}
 
 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
 	public static ArrayList<Order> getOrders(int status) throws SQLException, IOException
 	 {
 	/*
@@ -328,8 +331,11 @@ public final class DBNinja {
 		 conn.close();
 		 return orderList;
 	}
-	
-	public static Order getLastOrder() throws SQLException, IOException 
+
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static Order getLastOrder() throws SQLException, IOException
 	{
 		/*
 		 * Query the database for the LAST order added
@@ -501,6 +507,9 @@ public final class DBNinja {
 		 return lastOrder;
 	}
 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
 	public static ArrayList<Order> getOrdersByDate(String date) throws SQLException, IOException
 	 {
 		/*
@@ -682,8 +691,11 @@ public final class DBNinja {
 		 conn.close();
 		 return orderList;
 	}
-		
-	public static ArrayList<Discount> getDiscountList() throws SQLException, IOException 
+
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static ArrayList<Discount> getDiscountList() throws SQLException, IOException
 	{
 		/* 
 		 * Query the database for all the available discounts and 
@@ -725,7 +737,11 @@ public final class DBNinja {
 	}
 
 
-	public static ArrayList<Customer> getCustomerList() throws SQLException, IOException {
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static ArrayList<Customer> getCustomerList() throws SQLException, IOException
+	{
         /*
          * Query the data for all the customers and return an arrayList of all the customers.
          * Don't forget to order the data coming from the database appropriately.
@@ -765,7 +781,10 @@ public final class DBNinja {
 		 return null;
 	}
 
-	public static String getCustomerName(int CustID) throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static String getCustomerName(int CustID) throws SQLException, IOException
 	{
 		/*
 		 * COMPLETED...WORKING Example!
