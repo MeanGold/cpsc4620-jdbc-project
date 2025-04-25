@@ -4,6 +4,7 @@ import com.mysql.cj.x.protobuf.MysqlxPrepare;
 
 import java.io.IOException;
 import java.sql.*;
+import java.sql.Date;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -87,6 +88,96 @@ public final class DBNinja {
 		 * so the cusomter id coming from the Order object will be -1.
 		 * 
 		 */
+		/*INSERT INTO ordertable VALUES(1, Null, "dinein", "2025-03-05 12:03:00", 19.75, 3.68, True);*/
+		connect_to_db();
+
+		try {
+
+			String findLastOrderID = "SELECT ordertable_OrderID FROM ordertable ORDER BY ordertable_OrderID DESC LIMIT 1;";
+			PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastOrderID);
+			ResultSet rsetID = stmtLastOrderID.executeQuery();
+			rsetID.next();
+			int orderID = rsetID.getInt("ordertable_OrderID");
+			// Add one to the orderID to get the correct next ID
+			orderID += 1;
+
+			String insertOrder = "INSERT INTO ordertable VALUES (?, ?, ?, DATE(?), ?, ?, ?);";
+			PreparedStatement stmtOrder = conn.prepareStatement(insertOrder);
+			stmtOrder.setInt(1, orderID);
+			// ---------------------------------------------------------------------------------
+			// Excluding orderID so that it auto increments and assigns the next value
+			// ---------------------------------------------------------------------------------
+			if (Objects.equals(o.getOrderType(), "dinein")) {
+				stmtOrder.setNull(2, Types.INTEGER);
+			} else {
+				stmtOrder.setInt(2, o.getCustID());
+			}
+			stmtOrder.setString(3, o.getOrderType());
+			stmtOrder.setString(4, o.getDate());
+			stmtOrder.setDouble(5, o.getCustPrice());
+			stmtOrder.setDouble(6, o.getBusPrice());
+			stmtOrder.setBoolean(7, o.getIsComplete());
+			stmtOrder.executeUpdate();
+
+			// ----------------------------------------------------------------------------------
+			// Must add switch statement for different order types: dine-in, pickup, and delivery
+			// ----------------------------------------------------------------------------------
+			switch (o.getOrderType()) {
+				case dine_in:
+					DineinOrder tempDi = (DineinOrder) o;
+					String insertDinein = "INSERT INTO dinein VALUES (?, ?);";
+					PreparedStatement stmtDinein = conn.prepareStatement(insertDinein);
+					stmtDinein.setInt(1, orderID);
+					stmtDinein.setInt(2, tempDi.getTableNum());
+					stmtDinein.executeUpdate();
+					break;
+				case pickup:
+					PickupOrder tempP = (PickupOrder) o;
+					String insertPickup = "INSERT INTO pickup VALUES (?, ?);";
+					PreparedStatement stmtPickup = conn.prepareStatement(insertPickup);
+					stmtPickup.setInt(1, orderID);
+					stmtPickup.setBoolean(2, tempP.getIsPickedUp());
+					stmtPickup.executeUpdate();
+					break;
+				case delivery:
+					DeliveryOrder tempDe = (DeliveryOrder) o;
+					String insertDelivery = "INSERT INTO delivery VALUES (?, ?, ?, ?, ?, ?, ?);";
+					PreparedStatement stmtDelivery = conn.prepareStatement(insertDelivery);
+					stmtDelivery.setInt(1, orderID);
+					String addr = tempDe.getAddress();
+					// housenum, street, city, state, zip
+					String[] words = addr.split("\\s+");
+
+
+					stmtDelivery.setInt(2, Integer.parseInt(words[0]));
+					stmtDelivery.setString(3, words[1]);
+					stmtDelivery.setString(4, words[2]);
+					stmtDelivery.setString(5, words[3]);
+					stmtDelivery.setInt(6, Integer.parseInt(words[4]));
+					stmtDelivery.setBoolean(7, false);
+					stmtDelivery.executeUpdate();
+					break;
+			}
+
+
+
+			for (Pizza pizza : o.getPizzaList()) {
+				java.util.Date orderDate = new Date(getYear(o.getDate()), getMonth(o.getDate()), getDay(o.getDate()));
+				addPizza(orderDate, orderID, pizza);
+			}
+
+			for (Discount discount : o.getDiscountList()) {
+				String insertDiscounts = "INSERT INTO order_discount VALUES (?, ?);";
+				PreparedStatement stmtDiscounts = conn.prepareStatement(insertDiscounts);
+				stmtDiscounts.setInt(1, orderID);
+				stmtDiscounts.setInt(2, discount.getDiscountID());
+				stmtDiscounts.executeUpdate();
+			}
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		conn.close();
 	}
 	
 	public static int addPizza(java.util.Date d, int orderID, Pizza p) throws SQLException, IOException
@@ -102,8 +193,55 @@ public final class DBNinja {
 		 * This method returns the id of the pizza just added.
 		 * 
 		 */
+		/*INSERT INTO pizza VALUES(1001, "Large", "Thin", "completed",
+			"2025-03-05 12:03:00", 19.75, 3.68, 1);*/
+		connect_to_db();
+		int pizzaID = 0;
+		try {
+			String findLastOrderID = "SELECT pizza_PizzaID FROM pizza ORDER BY pizza_PizzaID DESC LIMIT 1;";
+			PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastOrderID);
+			ResultSet rsetID = stmtLastOrderID.executeQuery();
+			rsetID.next();
+			pizzaID = rsetID.getInt("pizza_PizzaID");
+			// Add one to the pizzaID for the correct next ID
+			pizzaID += 1;
 
-		return -1;
+			String insertPizza = "INSERT INTO pizza VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
+			PreparedStatement stmtPizza = conn.prepareStatement(insertPizza);
+			// ---------------------------------------------------------------------------------
+			// Excluding orderID so that it auto increments and assigns the next value
+			// ---------------------------------------------------------------------------------
+			stmtPizza.setInt(1, pizzaID);
+			stmtPizza.setString(2, p.getSize());
+			stmtPizza.setString(3, p.getCrustType());
+			stmtPizza.setString(4, p.getPizzaState());
+			stmtPizza.setDate(5, (Date) d);
+			stmtPizza.setDouble(6, p.getCustPrice());
+			stmtPizza.setDouble(7, p.getBusPrice());
+			stmtPizza.setInt(8, orderID);
+			stmtPizza.executeUpdate();
+
+			for (Topping topping : p.getToppings()) {
+				String insertToppings = "INSERT INTO pizza_topping VALUES (?, ?, ?);";
+				PreparedStatement stmtToppings = conn.prepareStatement(insertToppings);
+				stmtToppings.setInt(1, pizzaID);
+				stmtToppings.setInt(2, topping.getTopID());
+				stmtToppings.setInt(3, (topping.getDoubled()) ? 1 : 0);
+				stmtToppings.executeUpdate();
+			}
+
+			for (Discount discount : p.getDiscounts()) {
+				String insertDiscounts = "INSERT INTO pizza_discount VALUES (?, ?);";
+				PreparedStatement stmtDiscounts = conn.prepareStatement(insertDiscounts);
+				stmtDiscounts.setInt(1, pizzaID);
+				stmtDiscounts.setInt(2, discount.getDiscountID());
+				stmtDiscounts.executeUpdate();
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+		return pizzaID;
 	}
 	
 	public static int addCustomer(Customer c) throws SQLException, IOException
@@ -112,8 +250,28 @@ public final class DBNinja {
 		 * This method adds a new customer to the database.
 		 * 
 		 */
+		 connect_to_db();
 
-		 return -1;
+		 String findLastCustID = "SELECT customer_CustID FROM customer ORDER BY customer_CustID DESC LIMIT 1;";
+		 PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastCustID);
+		 ResultSet rsetID = stmtLastOrderID.executeQuery();
+		 rsetID.next();
+		 c.setCustID(rsetID.getInt("customer_CustID")+1);
+
+		 String insertCust = "INSERT INTO customer VALUES(?, ?, ?, ?);";
+		 PreparedStatement stmtCust = conn.prepareStatement(insertCust);
+		 // ---------------------------------------------------------------------------------
+		 // Excluding orderID so that it auto increments and assigns the next value
+		 // ---------------------------------------------------------------------------------
+
+		 stmtCust.setInt(1, c.getCustID());
+		 stmtCust.setString(2, c.getFName());
+		 stmtCust.setString(3, c.getLName());
+		 stmtCust.setString(4, c.getPhone());
+		 stmtCust.executeUpdate();
+		 conn.close();
+
+		 return c.getCustID();
 	}
 
 	public static void completeOrder(int OrderID, order_state newState ) throws SQLException, IOException
