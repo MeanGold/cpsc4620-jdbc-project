@@ -88,26 +88,33 @@ public final class DBNinja {
 		 * so the cusomter id coming from the Order object will be -1.
 		 * 
 		 */
-		/*INSERT INTO ordertable VALUES(1, Null, "dinein", "2025-03-05 12:03:00", 19.75, 3.68, True);*/
 		connect_to_db();
-
 		try {
-
+			// Querying the database to find the most recent order ID
+			// NOTE: the order ID in the Order object is set to '-1' by default and never changed
+			// so you have to manually adjust it here
+			// ------------------------------------------------------------------------------------------------------------
+			// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			String findLastOrderID = "SELECT ordertable_OrderID FROM ordertable ORDER BY ordertable_OrderID DESC LIMIT 1;";
 			PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastOrderID);
 			ResultSet rsetID = stmtLastOrderID.executeQuery();
 			rsetID.next();
+			// Get latest order ID
 			int orderID = rsetID.getInt("ordertable_OrderID");
-			// Add one to the orderID to get the correct next ID
+			// Add one to the latest orderID to get the correct ID for the new order
 			orderID += 1;
+			// Update the Order object with the correct order ID
 			o.setOrderID(orderID);
+			// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			// ------------------------------------------------------------------------------------------------------------
 
+			// ---------------------------------------------------------------------------------
+			// Building INSERT statement for ordertable
+			// ---------------------------------------------------------------------------------
 			String insertOrder = "INSERT INTO ordertable VALUES (?, ?, ?, DATE(?), ?, ?, ?);";
 			PreparedStatement stmtOrder = conn.prepareStatement(insertOrder);
 			stmtOrder.setInt(1, orderID);
-			// ---------------------------------------------------------------------------------
-			// Excluding orderID so that it auto increments and assigns the next value
-			// ---------------------------------------------------------------------------------
+			// If order is 'dinein', then we have no customer ID, so set it to NULL
 			if (Objects.equals(o.getOrderType(), "dinein")) {
 				stmtOrder.setNull(2, Types.INTEGER);
 			} else {
@@ -121,11 +128,14 @@ public final class DBNinja {
 			stmtOrder.executeUpdate();
 
 			// ----------------------------------------------------------------------------------
-			// Must add switch statement for different order types: dine-in, pickup, and delivery
+			// Switch statement for different order types: dine-in, pickup, and delivery
 			// ----------------------------------------------------------------------------------
 			switch (o.getOrderType()) {
 				case dine_in:
 					DineinOrder tempDi = (DineinOrder) o;
+					// ---------------------------------------------------------------------------------
+					// Building INSERT statement for dinein
+					// ---------------------------------------------------------------------------------
 					String insertDinein = "INSERT INTO dinein VALUES (?, ?);";
 					PreparedStatement stmtDinein = conn.prepareStatement(insertDinein);
 					stmtDinein.setInt(1, orderID);
@@ -134,6 +144,9 @@ public final class DBNinja {
 					break;
 				case pickup:
 					PickupOrder tempP = (PickupOrder) o;
+					// ---------------------------------------------------------------------------------
+					// Building INSERT statement for pickup
+					// ---------------------------------------------------------------------------------
 					String insertPickup = "INSERT INTO pickup VALUES (?, ?);";
 					PreparedStatement stmtPickup = conn.prepareStatement(insertPickup);
 					stmtPickup.setInt(1, orderID);
@@ -142,13 +155,16 @@ public final class DBNinja {
 					break;
 				case delivery:
 					DeliveryOrder tempDe = (DeliveryOrder) o;
+					// ---------------------------------------------------------------------------------
+					// Building INSERT statement for delivery
+					// ---------------------------------------------------------------------------------
 					String insertDelivery = "INSERT INTO delivery VALUES (?, ?, ?, ?, ?, ?, ?);";
 					PreparedStatement stmtDelivery = conn.prepareStatement(insertDelivery);
 					stmtDelivery.setInt(1, orderID);
 					String addr = tempDe.getAddress();
+					// Splitting address into a String array of words
 					// housenum, street, city, state, zip
 					String[] words = addr.split("\\s+");
-
 
 					stmtDelivery.setInt(2, Integer.parseInt(words[0]));
 					stmtDelivery.setString(3, words[1]);
@@ -160,6 +176,9 @@ public final class DBNinja {
 					break;
 			}
 
+			// ---------------------------------------------------------------------------------
+			// Getting all pizzas for the order
+			// ---------------------------------------------------------------------------------
 			for (Pizza pizza : o.getPizzaList()) {
 				// Doing some gerrymandering to get the outdated Java Date object to work as intended
 				int year = getYear(o.getDate())-1900; // The Date object apparently doesn't believe anything existed before 1900
@@ -169,6 +188,9 @@ public final class DBNinja {
 				addPizza(orderDate, orderID, pizza);
 			}
 
+			// ---------------------------------------------------------------------------------
+			// Getting all discounts for the order
+			// ---------------------------------------------------------------------------------
 			for (Discount discount : o.getDiscountList()) {
 				String insertDiscounts = "INSERT INTO order_discount VALUES (?, ?);";
 				PreparedStatement stmtDiscounts = conn.prepareStatement(insertDiscounts);
@@ -186,7 +208,7 @@ public final class DBNinja {
 	public static int addPizza(java.util.Date d, int orderID, Pizza p) throws SQLException, IOException
 	{
 		/*
-		 * Add the code needed to insert the pizza into into the database.
+		 * Add the code needed to insert the pizza into the database.
 		 * Keep in mind you must also add the pizza discounts and toppings 
 		 * associated with the pizza.
 		 * 
@@ -196,25 +218,35 @@ public final class DBNinja {
 		 * This method returns the id of the pizza just added.
 		 * 
 		 */
-		/*INSERT INTO pizza VALUES(1001, "Large", "Thin", "completed",
-			"2025-03-05 12:03:00", 19.75, 3.68, 1);*/
 		connect_to_db();
+
+		// Variable for return statement
 		int pizzaID = 0;
+
 		try {
+			// Querying the database to find the most recent pizza ID
+			// NOTE: the pizza ID in the Pizza object is set to '-1' by default and never changed
+			// so you have to manually adjust it here
+			// ------------------------------------------------------------------------------------------------------------
+			// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			String findLastOrderID = "SELECT pizza_PizzaID FROM pizza ORDER BY pizza_PizzaID DESC LIMIT 1;";
 			PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastOrderID);
 			ResultSet rsetID = stmtLastOrderID.executeQuery();
 			rsetID.next();
+			// Get latest pizza ID
 			pizzaID = rsetID.getInt("pizza_PizzaID");
-			// Add one to the pizzaID for the correct next ID
+			// Add one to the latest pizzaID to get the correct ID for the new order
 			pizzaID += 1;
+			// Update the Pizza object with the correct pizza ID
 			p.setPizzaID(pizzaID);
+			// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			// ------------------------------------------------------------------------------------------------------------
 
+			// ---------------------------------------------------------------------------------
+			// Building INSERT statement for pizza
+			// ---------------------------------------------------------------------------------
 			String insertPizza = "INSERT INTO pizza VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
 			PreparedStatement stmtPizza = conn.prepareStatement(insertPizza);
-			// ---------------------------------------------------------------------------------
-			// Excluding orderID so that it auto increments and assigns the next value
-			// ---------------------------------------------------------------------------------
 			stmtPizza.setInt(1, pizzaID);
 			stmtPizza.setString(2, p.getSize());
 			stmtPizza.setString(3, p.getCrustType());
@@ -225,6 +257,9 @@ public final class DBNinja {
 			stmtPizza.setInt(8, orderID);
 			stmtPizza.executeUpdate();
 
+			// ---------------------------------------------------------------------------------
+			// Building INSERT statement for pizza_topping
+			// ---------------------------------------------------------------------------------
 			for (Topping topping : p.getToppings()) {
 				String insertToppings = "INSERT INTO pizza_topping VALUES (?, ?, ?);";
 				PreparedStatement stmtToppings = conn.prepareStatement(insertToppings);
@@ -233,6 +268,9 @@ public final class DBNinja {
 				stmtToppings.setInt(3, (topping.getDoubled()) ? 1 : 0);
 				stmtToppings.executeUpdate();
 
+				// ---------------------------------------------------------------------------------
+				// Calculating how much topping is used on pizza
+				// ---------------------------------------------------------------------------------
 				double topAmt = 0.0;
 				switch (p.getSize()) {
 					case size_s:
@@ -251,9 +289,13 @@ public final class DBNinja {
 				if (topping.getDoubled()) {
 					topAmt *= 2.0;
 				}
+				// Removing topping from database (NOTE: topping amount is passed as negative)
 				addToInventory(topping.getTopID(), -topAmt);
 			}
 
+			// ---------------------------------------------------------------------------------
+			// Building INSERT statement for pizza_discount
+			// ---------------------------------------------------------------------------------
 			for (Discount discount : p.getDiscounts()) {
 				String insertDiscounts = "INSERT INTO pizza_discount VALUES (?, ?);";
 				PreparedStatement stmtDiscounts = conn.prepareStatement(insertDiscounts);
@@ -264,7 +306,6 @@ public final class DBNinja {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-
 		return pizzaID;
 	}
 	
@@ -275,12 +316,28 @@ public final class DBNinja {
 		 * 
 		 */
 		 connect_to_db();
+		 try {
+			 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			 /*
+			 NOTE: the customer ID in the Customer object is calculated incorrectly. Instead of grabbing the most
+			 recent ID from the Customer table, the code in Menu.java pulls the last row returned by getCustomerList().
+			 In theory this should pull the most recent order ID, but this is not the case because the results from the
+			 Autograder seem to instruct me to order the results from getCustomerList by Last Name. This messes up the
+			 calculation for the most recent customer ID in Menu.java. Thus, I have to manually adjust the ID below.
+			 */
+			 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-		 String findLastCustID = "SELECT customer_CustID FROM customer ORDER BY customer_CustID DESC LIMIT 1;";
-		 PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastCustID);
-		 ResultSet rsetID = stmtLastOrderID.executeQuery();
-		 rsetID.next();
-		 c.setCustID(rsetID.getInt("customer_CustID")+1);
+			 // --------------------------------------------------------------------------------------------------------
+			 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			 // Querying the database to find the most recent customer ID
+			 String findLastCustID = "SELECT customer_CustID FROM customer ORDER BY customer_CustID DESC LIMIT 1;";
+			 PreparedStatement stmtLastOrderID = conn.prepareStatement(findLastCustID);
+			 ResultSet rsetID = stmtLastOrderID.executeQuery();
+			 rsetID.next();
+			 // Update the Customer object with the correct customer ID (add one to the latest customer ID)
+			 c.setCustID(rsetID.getInt("customer_CustID") + 1);
+			 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			 // --------------------------------------------------------------------------------------------------------
 
 		 String insertCust = "INSERT INTO customer VALUES(?, ?, ?, ?);";
 		 PreparedStatement stmtCust = conn.prepareStatement(insertCust);
@@ -293,8 +350,21 @@ public final class DBNinja {
 		 stmtCust.setString(3, c.getLName());
 		 stmtCust.setString(4, c.getPhone());
 		 stmtCust.executeUpdate();
-		 conn.close();
+			 // ---------------------------------------------------------------------------------
+			 // Building INSERT statement for customer
+			 // ---------------------------------------------------------------------------------
+			 String insertCust = "INSERT INTO customer VALUES(?, ?, ?, ?);";
+			 PreparedStatement stmtCust = conn.prepareStatement(insertCust);
+			 stmtCust.setInt(1, c.getCustID());
+			 stmtCust.setString(2, c.getFName());
+			 stmtCust.setString(3, c.getLName());
+			 stmtCust.setString(4, c.getPhone());
+			 stmtCust.executeUpdate();
 
+		 } catch (SQLException e) {
+			 e.printStackTrace();
+		 }
+		 conn.close();
 		 return c.getCustID();
 	}
 
@@ -318,28 +388,47 @@ public final class DBNinja {
 				PreparedStatement completeOrdStmt = conn.prepareStatement(completeOrder);
 				completeOrdStmt.setInt(1, OrderID);
 				completeOrdStmt.executeUpdate();
+		try {
+			switch (newState) {
+				case PREPARED:
+					// ---------------------------------------------------------------------------------
+					// Building UPDATE statement for ordertable to mark order as COMPLETE
+					// ---------------------------------------------------------------------------------
+					String completeOrder = "UPDATE ordertable SET ordertable_isComplete = 1 WHERE ordertable_OrderID = ?;";
+					PreparedStatement completeOrdStmt = conn.prepareStatement(completeOrder);
+					completeOrdStmt.setInt(1, OrderID);
+					completeOrdStmt.executeUpdate();
 
-				// Marking pizzas for the order as "COMPLETE"
-				String getPizzasForOrder = "UPDATE pizza SET pizza_PizzaState = ? WHERE ordertable_OrderID = ?;";
-				PreparedStatement completePizzasStmt = conn.prepareStatement(getPizzasForOrder);
-				completePizzasStmt.setString(1, "COMPLETED");
-				completePizzasStmt.setInt(2, OrderID);
-				completePizzasStmt.executeUpdate();
-				break;
-			case DELIVERED:
-				// Marking a delivery order as "DELIVERED"
-				String completeDelivery = "UPDATE delivery SET delivery_IsDelivered = 1 WHERE ordertable_OrderID = ?;";
-				PreparedStatement completeDelivStmt = conn.prepareStatement(completeDelivery);
-				completeDelivStmt.setInt(1, OrderID);
-				completeDelivStmt.executeUpdate();
-				break;
-			case PICKEDUP:
-				// Marking a pickup order as "PICKED UP"
-				String completePickup = "UPDATE pickup SET pickup_IsPickedUp = 1 WHERE ordertable_OrderID = ?;";
-				PreparedStatement completePUStmt = conn.prepareStatement(completePickup);
-				completePUStmt.setInt(1, OrderID);
-				completePUStmt.executeUpdate();
-				break;
+					// ---------------------------------------------------------------------------------
+					// Building UPDATE statement for pizza to mark each pizza for the order as COMPLETE
+					// ---------------------------------------------------------------------------------
+					String getPizzasForOrder = "UPDATE pizza SET pizza_PizzaState = ? WHERE ordertable_OrderID = ?;";
+					PreparedStatement completePizzasStmt = conn.prepareStatement(getPizzasForOrder);
+					completePizzasStmt.setString(1, "COMPLETED");
+					completePizzasStmt.setInt(2, OrderID);
+					completePizzasStmt.executeUpdate();
+					break;
+				case DELIVERED:
+					// ---------------------------------------------------------------------------------
+					// Building UPDATE statement for delivery to mark order as DELIVERED
+					// ---------------------------------------------------------------------------------
+					String completeDelivery = "UPDATE delivery SET delivery_IsDelivered = 1 WHERE ordertable_OrderID = ?;";
+					PreparedStatement completeDelivStmt = conn.prepareStatement(completeDelivery);
+					completeDelivStmt.setInt(1, OrderID);
+					completeDelivStmt.executeUpdate();
+					break;
+				case PICKEDUP:
+					// ---------------------------------------------------------------------------------
+					// Building UPDATE statement for pickup to mark order as PICKED UP
+					// ---------------------------------------------------------------------------------
+					String completePickup = "UPDATE pickup SET pickup_IsPickedUp = 1 WHERE ordertable_OrderID = ?;";
+					PreparedStatement completePUStmt = conn.prepareStatement(completePickup);
+					completePUStmt.setInt(1, OrderID);
+					completePUStmt.executeUpdate();
+					break;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 		conn.close();
 	}
@@ -367,8 +456,13 @@ public final class DBNinja {
 	 */
 		 connect_to_db();
 
+		 // Variable for return statement
 		 ArrayList<Order> orderList = new ArrayList<>();
+
 		 try {
+			 // -------------------------------------------------------------------------------------------
+			 // Building SELECT statement for ordertable based on searching for OPEN, CLOSED, or ALL orders
+			 // -------------------------------------------------------------------------------------------
 			 PreparedStatement os;
 			 ResultSet rset;
 			 String query;
@@ -440,23 +534,24 @@ public final class DBNinja {
 				 /* ==============================================================
 				  * Retrieve and add all the pizzas for the order
 				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Retrieve and add all the pizzas for the order
+				 // ------------------------------------------------------------------
 				 nextOrder.setPizzaList(getPizzas(nextOrder));
 
-				 /* ==============================================================
-				  * Getting all the discounts for the order into a list
-				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Getting all the discounts for the order into a list
+				 // ------------------------------------------------------------------
 				 nextOrder.setDiscountList(getDiscounts(nextOrder));
 
-				 /* ==============================================================
-				  * Add the order to the order list
-				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Add the order to the order list
+				 // ------------------------------------------------------------------
 				 orderList.add(nextOrder);
 			 }
-
 		 } catch (SQLException e) {
 			 e.printStackTrace();
 		 }
-
 		 conn.close();
 		 return orderList;
 	}
@@ -537,11 +632,14 @@ public final class DBNinja {
 			/* ==============================================================
 			 * Retrieve and add all the pizzas for the order
 			 * =============================================================== */
+			// ------------------------------------------------------------------
+			// Retrieve and add all the pizzas for the order
+			// ------------------------------------------------------------------
 			lastOrder.setPizzaList(getPizzas(lastOrder));
 
-			/* ==============================================================
-			 * Retrieve and add all the discounts for the order
-			 * =============================================================== */
+			// ------------------------------------------------------------------
+			// Getting all the discounts for the order into a list
+			// ------------------------------------------------------------------
 			lastOrder.setDiscountList(getDiscounts(lastOrder));
 
 			// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -581,6 +679,9 @@ public final class DBNinja {
 				 /* ==============================================================
 				  * SWITCH statement for Dine-in, Pickup, and Delivery
 				  * =============================================================== */
+				 // ==============================================================
+				 // SWITCH statement for Dine-in, Pickup, and Delivery
+				 // ===============================================================
 				 switch (rset.getString("ordertable_OrderType")) {
 					 case dine_in:
 						 // Retrieving the extra values that are included in a Dine-in order
@@ -632,16 +733,19 @@ public final class DBNinja {
 				 /* ==============================================================
 				  * Retrieve and add all the pizzas for the order
 				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Retrieve and add all the pizzas for the order
+				 // ------------------------------------------------------------------
 				 nextOrder.setPizzaList(getPizzas(nextOrder));
 
-				 /* ==============================================================
-				  * Retrieve and add all the discounts for the order
-				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Getting all the discounts for the order into a list
+				 // ------------------------------------------------------------------
 				 nextOrder.setDiscountList(getDiscounts(nextOrder));
 
-				 /* ==============================================================
-				  * Add the order to the order list
-				  * =============================================================== */
+				 // ------------------------------------------------------------------
+				 // Add the order to the order list
+				 // ------------------------------------------------------------------
 				 orderList.add(nextOrder);
 				 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
