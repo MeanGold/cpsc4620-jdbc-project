@@ -100,6 +100,7 @@ public final class DBNinja {
 			int orderID = rsetID.getInt("ordertable_OrderID");
 			// Add one to the orderID to get the correct next ID
 			orderID += 1;
+			o.setOrderID(orderID);
 
 			String insertOrder = "INSERT INTO ordertable VALUES (?, ?, ?, DATE(?), ?, ?, ?);";
 			PreparedStatement stmtOrder = conn.prepareStatement(insertOrder);
@@ -159,10 +160,12 @@ public final class DBNinja {
 					break;
 			}
 
-
-
 			for (Pizza pizza : o.getPizzaList()) {
-				java.util.Date orderDate = new Date(getYear(o.getDate()), getMonth(o.getDate()), getDay(o.getDate()));
+				// Doing some gerrymandering to get the outdated Java Date object to work as intended
+				int year = getYear(o.getDate())-1900; // The Date object apparently doesn't believe anything existed before 1900
+				int month = getMonth(o.getDate())-1; // Also April is now the 3rd month of the year (0 indexed)
+				int day = getDay(o.getDate()); // Nothing funky here, just a normal day of the month (goes from 1-31)
+				java.util.Date orderDate = new Date(year, month, day);
 				addPizza(orderDate, orderID, pizza);
 			}
 
@@ -205,6 +208,7 @@ public final class DBNinja {
 			pizzaID = rsetID.getInt("pizza_PizzaID");
 			// Add one to the pizzaID for the correct next ID
 			pizzaID += 1;
+			p.setPizzaID(pizzaID);
 
 			String insertPizza = "INSERT INTO pizza VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
 			PreparedStatement stmtPizza = conn.prepareStatement(insertPizza);
@@ -228,6 +232,26 @@ public final class DBNinja {
 				stmtToppings.setInt(2, topping.getTopID());
 				stmtToppings.setInt(3, (topping.getDoubled()) ? 1 : 0);
 				stmtToppings.executeUpdate();
+
+				double topAmt = 0.0;
+				switch (p.getSize()) {
+					case size_s:
+						topAmt = topping.getSmallAMT();
+						break;
+					case size_m:
+						topAmt = topping.getMedAMT();
+						break;
+					case size_l:
+						topAmt = topping.getLgAMT();
+						break;
+					case size_xl:
+						topAmt = topping.getXLAMT();
+						break;
+				}
+				if (topping.getDoubled()) {
+					topAmt *= 2.0;
+				}
+				addToInventory(topping.getTopID(), -topAmt);
 			}
 
 			for (Discount discount : p.getDiscounts()) {
