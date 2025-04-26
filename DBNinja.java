@@ -656,29 +656,30 @@ public final class DBNinja {
 		 * 
 		*/
 		connect_to_db();
-
 		ArrayList<Discount> discountList = new ArrayList<>();
 		try {
 			PreparedStatement os;
 			ResultSet rset;
 			String query;
-			query = "Select discount_DiscountID, discount_DiscountName, discount_Amount, discount_IsPercent From discount;";
+			query = "SELECT * FROM discount ORDER BY discount_DiscountNAME;";
 			os = conn.prepareStatement(query);
 			rset = os.executeQuery();
 			while (rset.next()) {
-				Discount nextDiscount = new Discount(rset.getInt("discount_DiscountID"), rset.getString("discount_Name"), rset.getDouble("discount_Amount"), rset.getBoolean("discount_IsPercent"));
+				Discount nextDiscount = new Discount(rset.getInt("discount_DiscountID"), rset.getString("discount_DiscountName"), rset.getDouble("discount_Amount"), rset.getBoolean("discount_IsPercent"));
 				discountList.add(nextDiscount);
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 			// process the error or re-raise the exception to a higher level
 		}
-
 		conn.close();
 		return discountList;
 	}
 
-	public static Discount findDiscountByName(String name) throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static Discount findDiscountByName(String name) throws SQLException, IOException
 	{
 		/*
 		 * Query the database for a discount using it's name.
@@ -686,7 +687,26 @@ public final class DBNinja {
 		 * If it's not found....then return null
 		 *  
 		 */
-		 return null;
+		connect_to_db();
+		Discount myDiscount = null;
+		try {
+			PreparedStatement osDisc;
+			ResultSet rsetDisc;
+			String discQuery = "SELECT * FROM discount WHERE discount_DiscountNAME = ?;";
+			osDisc = conn.prepareStatement(discQuery);
+			osDisc.setString(1, name);
+			rsetDisc = osDisc.executeQuery();
+			// Check if the rsetDisc object is empty (i.e. there are NO discounts with the specified name)
+			if (rsetDisc.isBeforeFirst()) {
+				rsetDisc.next();
+				myDiscount = new Discount(rsetDisc.getInt("discount_DiscountID"), rsetDisc.getString("discount_DiscountName"),
+						rsetDisc.getDouble("discount_Amount"), rsetDisc.getBoolean("discount_IsPercent"));
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		conn.close();
+		return myDiscount;
 	}
 
 
