@@ -310,7 +310,38 @@ public final class DBNinja {
 		 * FOR newState = PICKEDUP: mark the pickup status
 		 * 
 		 */
+		connect_to_db();
+		switch (newState) {
+			case PREPARED:
+				// Marking order as "COMPLETE"
+				String completeOrder = "UPDATE ordertable SET ordertable_isComplete = 1 WHERE ordertable_OrderID = ?;";
+				PreparedStatement completeOrdStmt = conn.prepareStatement(completeOrder);
+				completeOrdStmt.setInt(1, OrderID);
+				completeOrdStmt.executeUpdate();
 
+				// Marking pizzas for the order as "COMPLETE"
+				String getPizzasForOrder = "UPDATE pizza SET pizza_PizzaState = ? WHERE ordertable_OrderID = ?;";
+				PreparedStatement completePizzasStmt = conn.prepareStatement(getPizzasForOrder);
+				completePizzasStmt.setString(1, "COMPLETED");
+				completePizzasStmt.setInt(2, OrderID);
+				completePizzasStmt.executeUpdate();
+				break;
+			case DELIVERED:
+				// Marking a delivery order as "DELIVERED"
+				String completeDelivery = "UPDATE delivery SET delivery_IsDelivered = 1 WHERE ordertable_OrderID = ?;";
+				PreparedStatement completeDelivStmt = conn.prepareStatement(completeDelivery);
+				completeDelivStmt.setInt(1, OrderID);
+				completeDelivStmt.executeUpdate();
+				break;
+			case PICKEDUP:
+				// Marking a pickup order as "PICKED UP"
+				String completePickup = "UPDATE pickup SET pickup_IsPickedUp = 1 WHERE ordertable_OrderID = ?;";
+				PreparedStatement completePUStmt = conn.prepareStatement(completePickup);
+				completePUStmt.setInt(1, OrderID);
+				completePUStmt.executeUpdate();
+				break;
+		}
+		conn.close();
 	}
 
 
@@ -929,6 +960,15 @@ public final class DBNinja {
 		 * Updates the quantity of the topping in the database by the amount specified.
 		 * 
 		 * */
+		connect_to_db();
+		String updateToppingAmt = "UPDATE topping SET topping_CurINVT = topping_CurINVT+? WHERE topping_TopID = ?;";
+		PreparedStatement updateTopStmt = conn.prepareStatement(updateToppingAmt);
+		if (quantity % 1 != 0) {
+			quantity = Math.floor(quantity);
+		}
+		updateTopStmt.setDouble(1, quantity);
+		updateTopStmt.setInt(2, toppingID);
+		updateTopStmt.executeUpdate();
 	}
 
 
