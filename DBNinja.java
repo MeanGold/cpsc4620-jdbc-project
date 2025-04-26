@@ -415,80 +415,7 @@ public final class DBNinja {
 		conn.close();
 	}
 
-	public static Order convertOrderToType(ArrayList<Object> list) throws SQLException, IOException
-	{
-		/* Helper function for the getOrder functions
-		 * Returns an Order object cast into the appropriate Order subtype: dinein, pickup, or delivery
-		 *
-		 * Populates each subtype with the appropriate information for the order
-		 * Must be called from function with active database connection
-		 *
-		 */
-		// Variable for return statement
-		Order newOrder = null;
-		// --------------------------------------------------------------------------------------
-		// SWITCH statement for dinein, pickup, and delivery
-		// --------------------------------------------------------------------------------------
-		try {
-			int OrderID = (int) list.get(0);
-			switch ((String) list.get(2)) {
-				case dine_in:
-					// ------------------------------------------------------------------------------
-					// Retrieving the extra values that are included in a dinein order
-					// ------------------------------------------------------------------------------
-					PreparedStatement dine_os;
-					ResultSet rsetDine;
-					String dineQuery = "SELECT * FROM dinein WHERE ordertable_OrderID = ?;";
-					dine_os = conn.prepareStatement(dineQuery);
-					dine_os.setInt(1, OrderID);
-					rsetDine = dine_os.executeQuery();
-					rsetDine.next();
-
-					newOrder = new DineinOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
-							(double) list.get(5), (Boolean) list.get(6), rsetDine.getInt("dinein_TableNum"));
-					break;
-				case pickup:
-					// ------------------------------------------------------------------------------
-					// Retrieving the extra values that are included in a pickup order
-					// ------------------------------------------------------------------------------
-					PreparedStatement pickup_os;
-					ResultSet rsetPick;
-					String pickQuery = "SELECT * FROM pickup WHERE ordertable_OrderID = ?;";
-					pickup_os = conn.prepareStatement(pickQuery);
-					pickup_os.setInt(1, OrderID);
-					rsetPick = pickup_os.executeQuery();
-					rsetPick.next();
-
-					newOrder = new PickupOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
-							(double) list.get(5), rsetPick.getBoolean("pickup_IsPickedUp"), (Boolean) list.get(6));
-					break;
-				case delivery:
-					// ------------------------------------------------------------------------------
-					// Retrieving the extra values that are included in a delivery order
-					// ------------------------------------------------------------------------------
-					PreparedStatement deliver_os;
-					ResultSet rsetDeliv;
-					String delivQuery = "SELECT * FROM delivery WHERE ordertable_OrderID = ?;";
-					deliver_os = conn.prepareStatement(delivQuery);
-					deliver_os.setInt(1, OrderID);
-					rsetDeliv = deliver_os.executeQuery();
-					rsetDeliv.next();
-					String address = rsetDeliv.getString("delivery_HouseNum") + "\t" +
-							rsetDeliv.getString("delivery_Street") + "\t" +
-							rsetDeliv.getString("delivery_City") + "\t" +
-							rsetDeliv.getString("delivery_State") + "\t" +
-							rsetDeliv.getString("delivery_Zip");
-
-					newOrder = new DeliveryOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
-							(double) list.get(5), (Boolean) list.get(6), rsetDeliv.getBoolean("delivery_IsDelivered"), address);
-					break;
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return newOrder;
-	}
-	public static Order convertOrderToTypeWithDict(Dictionary<String, Object> dict) throws SQLException, IOException
+	public static Order getOrderOfSubtype(Dictionary<String, Object> dict) throws SQLException, IOException
 	{
 		/* Helper function for the getOrder functions
 		 * Returns an Order object cast into the appropriate Order subtype: dinein, pickup, or delivery
@@ -616,6 +543,10 @@ public final class DBNinja {
 				 // Order object to fill with data
 				 Order nextOrder = null;
 				 int orderID = rset.getInt("ordertable_OrderID");
+
+				 // -----------------------------------------------------------------------------------
+				 // Creating dictionary object with order information
+				 // -----------------------------------------------------------------------------------
 				 Dictionary<String, Object> attrDict = new Hashtable<>();
 				 attrDict.put("OrderID", orderID);
 				 attrDict.put("CustID", rset.getInt("customer_CustID"));
@@ -625,7 +556,10 @@ public final class DBNinja {
 				 attrDict.put("BusPrice", rset.getDouble("ordertable_BusPrice"));
 				 attrDict.put("isComplete", rset.getBoolean("ordertable_isComplete"));
 
-				 nextOrder = convertOrderToTypeWithDict(attrDict);
+				 // ------------------------------------------------------------------
+				 // Retrieving Order object with dictionary
+				 // ------------------------------------------------------------------
+				 nextOrder = getOrderOfSubtype(attrDict);
 
 				 // ------------------------------------------------------------------
 				 // Retrieve and add all the pizzas for the order
@@ -664,6 +598,9 @@ public final class DBNinja {
 		Order lastOrder = null;
 
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for ordertable to get the last order added
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement os;
 			ResultSet rset;
 			String query = "SELECT * FROM ordertable ORDER BY ordertable_OrderDateTime DESC LIMIT 1;";
@@ -671,6 +608,10 @@ public final class DBNinja {
 			rset = os.executeQuery();
 			rset.next();
 			int orderID = rset.getInt("ordertable_OrderID");
+
+			// -----------------------------------------------------------------------------------
+			// Creating dictionary object with order information
+			// -----------------------------------------------------------------------------------
 			Dictionary<String, Object> attrDict = new Hashtable<>();
 			attrDict.put("OrderID", orderID);
 			attrDict.put("CustID", rset.getInt("customer_CustID"));
@@ -680,7 +621,10 @@ public final class DBNinja {
 			attrDict.put("BusPrice", rset.getDouble("ordertable_BusPrice"));
 			attrDict.put("isComplete", rset.getBoolean("ordertable_isComplete"));
 
-			lastOrder = convertOrderToTypeWithDict(attrDict);
+			// ------------------------------------------------------------------
+			// Retrieving Order object with dictionary
+			// ------------------------------------------------------------------
+			lastOrder = getOrderOfSubtype(attrDict);
 
 			// ------------------------------------------------------------------
 			// Retrieve and add all the pizzas for the order
@@ -716,6 +660,9 @@ public final class DBNinja {
 
 		 ArrayList<Order> orderList = new ArrayList<>();
 		 try {
+			 // -------------------------------------------------------------------------------------------
+			 // Building SELECT statement for ordertable for orders on certain date
+			 // -------------------------------------------------------------------------------------------
 			 PreparedStatement os;
 			 ResultSet rset;
 			 String query = "SELECT * FROM ordertable WHERE CAST(ordertable_OrderDateTime AS DATE) = DATE(?);";
@@ -726,6 +673,10 @@ public final class DBNinja {
 			 while (rset.next()) {
 				 Order nextOrder = null;
 				 int orderID = rset.getInt("ordertable_OrderID");
+
+				 // -----------------------------------------------------------------------------------
+				 // Creating dictionary object with order information
+				 // -----------------------------------------------------------------------------------
 				 Dictionary<String, Object> attrDict = new Hashtable<>();
 				 attrDict.put("OrderID", orderID);
 				 attrDict.put("CustID", rset.getInt("customer_CustID"));
@@ -735,60 +686,10 @@ public final class DBNinja {
 				 attrDict.put("BusPrice", rset.getDouble("ordertable_BusPrice"));
 				 attrDict.put("isComplete", rset.getBoolean("ordertable_isComplete"));
 
-				 nextOrder = convertOrderToTypeWithDict(attrDict);
-
-				 /*
-				 // ==============================================================
-				 // SWITCH statement for Dine-in, Pickup, and Delivery
-				 // ===============================================================
-				 switch (rset.getString("ordertable_OrderType")) {
-					 case dine_in:
-						 // Retrieving the extra values that are included in a Dine-in order
-						 PreparedStatement dine_os;
-						 ResultSet rsetDine;
-						 String dineQuery = "Select * From dinein Where ordertable_OrderID = ?;";
-						 dine_os = conn.prepareStatement(dineQuery);
-						 dine_os.setInt(1, orderID);
-						 rsetDine = dine_os.executeQuery();
-						 rsetDine.next();
-						 nextOrder = new DineinOrder(orderID, rset.getInt("customer_CustID"),
-								 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
-								 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
-								 rsetDine.getInt("dinein_TableNum"));
-					 	 break;
-					 case pickup:
-						 // Retrieving the extra values that are included in a Pickup order
-						 PreparedStatement pickup_os;
-						 ResultSet rsetPick;
-						 String pickQuery = "Select * From pickup Where ordertable_OrderID = ?;";
-						 pickup_os = conn.prepareStatement(pickQuery);
-						 pickup_os.setInt(1, orderID);
-						 rsetPick = pickup_os.executeQuery();
-						 rsetPick.next();
-						 nextOrder = new PickupOrder(orderID, rset.getInt("customer_CustID"),
-								 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
-								 rset.getDouble("ordertable_BusPrice"), rsetPick.getBoolean("pickup_IsPickedUp"),
-								 rset.getBoolean("ordertable_isComplete"));
-						 break;
-					 case delivery:
-						 // Retrieving the extra values that are included in a Delivery order
-						 PreparedStatement deliver_os;
-						 ResultSet rsetDeliv;
-						 String delivQuery = "Select * From delivery Where ordertable_OrderID = ?;";
-						 deliver_os = conn.prepareStatement(delivQuery);
-						 deliver_os.setInt(1, orderID);
-						 rsetDeliv = deliver_os.executeQuery();
-						 rsetDeliv.next();
-						 String address = rsetDeliv.getString("delivery_HouseNum") + "\t" + rsetDeliv.getString("delivery_Street") +
-								 "\t" + rsetDeliv.getString("delivery_City") + "\t" + rsetDeliv.getString("delivery_State") + "\t" +
-								 rsetDeliv.getString("delivery_Zip");
-						 nextOrder = new DeliveryOrder(orderID, rset.getInt("customer_CustID"),
-								 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
-								 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
-								 rsetDeliv.getBoolean("delivery_IsDelivered"), address);
-					 	 break;
-				 }
-				 */
+				 // ------------------------------------------------------------------
+				 // Retrieving Order object with dictionary
+				 // ------------------------------------------------------------------
+				 nextOrder = getOrderOfSubtype(attrDict);
 
 				 // ------------------------------------------------------------------
 				 // Retrieve and add all the pizzas for the order
@@ -829,6 +730,9 @@ public final class DBNinja {
 		connect_to_db();
 		ArrayList<Discount> discountList = new ArrayList<>();
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for discount ordered by discount name
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement os;
 			ResultSet rset;
 			String query;
@@ -836,7 +740,10 @@ public final class DBNinja {
 			os = conn.prepareStatement(query);
 			rset = os.executeQuery();
 			while (rset.next()) {
-				Discount nextDiscount = new Discount(rset.getInt("discount_DiscountID"), rset.getString("discount_DiscountName"), rset.getDouble("discount_Amount"), rset.getBoolean("discount_IsPercent"));
+				Discount nextDiscount = new Discount(rset.getInt("discount_DiscountID"),
+						rset.getString("discount_DiscountName"),
+						rset.getDouble("discount_Amount"),
+						rset.getBoolean("discount_IsPercent"));
 				discountList.add(nextDiscount);
 			}
 		} catch (SQLException e) {
@@ -861,6 +768,9 @@ public final class DBNinja {
 		connect_to_db();
 		Discount myDiscount = null;
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for discount and search for discount by name
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osDisc;
 			ResultSet rsetDisc;
 			String discQuery = "SELECT * FROM discount WHERE discount_DiscountNAME = ?;";
@@ -870,8 +780,10 @@ public final class DBNinja {
 			// Check if the rsetDisc object is empty (i.e. there are NO discounts with the specified name)
 			if (rsetDisc.isBeforeFirst()) {
 				rsetDisc.next();
-				myDiscount = new Discount(rsetDisc.getInt("discount_DiscountID"), rsetDisc.getString("discount_DiscountName"),
-						rsetDisc.getDouble("discount_Amount"), rsetDisc.getBoolean("discount_IsPercent"));
+				myDiscount = new Discount(rsetDisc.getInt("discount_DiscountID"),
+						rsetDisc.getString("discount_DiscountName"),
+						rsetDisc.getDouble("discount_Amount"),
+						rsetDisc.getBoolean("discount_IsPercent"));
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -895,14 +807,20 @@ public final class DBNinja {
 
 		ArrayList<Customer> customerList = new ArrayList<>();
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for customer ordered by last name, first name, and phone number
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement os;
 			ResultSet rset;
 			String query;
-			query = "SELECT * FROM customer ORDER BY customer_LName;";
+			query = "SELECT * FROM customer ORDER BY customer_LName, customer_FName, customer_PhoneNum;";
 			os = conn.prepareStatement(query);
 			rset = os.executeQuery();
 			while (rset.next()) {
-				Customer nextCust = new Customer(rset.getInt("customer_CustID"), rset.getString("customer_FName"), rset.getString("customer_LName"), rset.getString("customer_PhoneNum"));
+				Customer nextCust = new Customer(rset.getInt("customer_CustID"),
+						rset.getString("customer_FName"),
+						rset.getString("customer_LName"),
+						rset.getString("customer_PhoneNum"));
 				customerList.add(nextCust);
 			}
 		} catch (SQLException e) {
@@ -928,6 +846,9 @@ public final class DBNinja {
 		connect_to_db();
 		Customer myCustomer = null;
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for customer and searching for customer based on phone number
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osCust;
 			ResultSet rsetCust;
 			String custQuery = "SELECT * FROM customer WHERE customer_PhoneNum = ?;";
@@ -1027,6 +948,9 @@ public final class DBNinja {
 
 		ArrayList<Topping> toppingList = new ArrayList<>();
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for topping ordered by topping name
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osTops;
 			ResultSet rsetTops;
 			String topsQuery = "SELECT * FROM topping ORDER BY topping_TopName;";
@@ -1062,6 +986,9 @@ public final class DBNinja {
 
 		Topping myTopping = null;
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement for topping and searching for topping by name
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osTop;
 			ResultSet rsetTop;
 			String topQuery = "SELECT * FROM topping WHERE topping_TopName = ?;";
@@ -1091,9 +1018,10 @@ public final class DBNinja {
 		 * This method builds an ArrayList of the toppings ON a pizza.
 		 * The list can then be added to the Pizza object elsewhere in the
 		 */
-		/* ==============================================================
-		 * Getting toppings for each pizza
-		 * =============================================================== */
+
+		// -----------------------------------------------------------------------
+		// Building SELECT statement to get all the toppings for a specific pizza
+		// -----------------------------------------------------------------------
 		int pizzaID = p.getPizzaID();
 		PreparedStatement osTops;
 		ResultSet rsetTops;
@@ -1104,10 +1032,21 @@ public final class DBNinja {
 		osTops.setInt(1, pizzaID);
 		rsetTops = osTops.executeQuery();
 		ArrayList<Topping> topsList = new ArrayList<>();
+
+		// -----------------------------------------------------------------------------------
+		// Looping through the sql results and adding each topping to the pizza
+		// -----------------------------------------------------------------------------------
 		while (rsetTops.next()) {
-			Topping nextTopping = new Topping(rsetTops.getInt("topping_TopID"), rsetTops.getString("topping_TopName"), rsetTops.getDouble("topping_SmallAMT"),
-					rsetTops.getDouble("topping_MedAMT"), rsetTops.getDouble("topping_LgAMT"), rsetTops.getDouble("topping_XLAMT"), rsetTops.getDouble("topping_CustPrice"),
-					rsetTops.getDouble("topping_BusPrice"), rsetTops.getInt("topping_MinINVT"), rsetTops.getInt("topping_CurINVT"));
+			Topping nextTopping = new Topping(rsetTops.getInt("topping_TopID"),
+					rsetTops.getString("topping_TopName"),
+					rsetTops.getDouble("topping_SmallAMT"),
+					rsetTops.getDouble("topping_MedAMT"),
+					rsetTops.getDouble("topping_LgAMT"),
+					rsetTops.getDouble("topping_XLAMT"),
+					rsetTops.getDouble("topping_CustPrice"),
+					rsetTops.getDouble("topping_BusPrice"),
+					rsetTops.getInt("topping_MinINVT"),
+					rsetTops.getInt("topping_CurINVT"));
 
 			nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
 			topsList.add(nextTopping);
@@ -1122,9 +1061,14 @@ public final class DBNinja {
 		 * 
 		 * */
 		connect_to_db();
+		// -----------------------------------------------------------------------------------
+		// Building UPDATE statement to edit the current inventory for a topping
+		// -----------------------------------------------------------------------------------
 		String updateToppingAmt = "UPDATE topping SET topping_CurINVT = topping_CurINVT+? WHERE topping_TopID = ?;";
 		PreparedStatement updateTopStmt = conn.prepareStatement(updateToppingAmt);
-		if (quantity % 1 != 0) {
+		// If our quantity has a decimal component and is negative
+		// THEN take the floor to drop the quantity to the correct amount
+		if ((quantity % 1 != 0) & (quantity < 0)) {
 			quantity = Math.floor(quantity);
 		}
 		updateTopStmt.setDouble(1, quantity);
@@ -1144,6 +1088,10 @@ public final class DBNinja {
 		 */
 		// connect_to_db();
 		int orderID = o.getOrderID();
+
+		// -----------------------------------------------------------------------------------
+		// Building SELECT statement to get all the pizzas for a certain order
+		// -----------------------------------------------------------------------------------
 		PreparedStatement osPizzas;
 		ResultSet rsetPizzas;
 		String pizzasQuery;
@@ -1154,10 +1102,14 @@ public final class DBNinja {
 		ArrayList<Pizza> pizzaList = new ArrayList<>();
 		while (rsetPizzas.next()) {
 			// New pizza object
-			Pizza nextPizza = new Pizza(rsetPizzas.getInt("pizza_PizzaID"), rsetPizzas.getString("pizza_Size"),
-					rsetPizzas.getString("pizza_CrustType"), rsetPizzas.getInt("ordertable_OrderID"),
-					rsetPizzas.getString("pizza_PizzaState"), rsetPizzas.getString("pizza_PizzaDate"),
-					rsetPizzas.getDouble("pizza_CustPrice"), rsetPizzas.getDouble("pizza_BusPrice"));
+			Pizza nextPizza = new Pizza(rsetPizzas.getInt("pizza_PizzaID"),
+					rsetPizzas.getString("pizza_Size"),
+					rsetPizzas.getString("pizza_CrustType"),
+					rsetPizzas.getInt("ordertable_OrderID"),
+					rsetPizzas.getString("pizza_PizzaState"),
+					rsetPizzas.getString("pizza_PizzaDate"),
+					rsetPizzas.getDouble("pizza_CustPrice"),
+					rsetPizzas.getDouble("pizza_BusPrice"));
 
 			/* ==============================================================
 			 * Getting toppings for each pizza
@@ -1189,6 +1141,10 @@ public final class DBNinja {
 		 */
 		// connect_to_db();
 		int orderID = o.getOrderID();
+
+		// -----------------------------------------------------------------------------------
+		// Building SELECT statement to get all the discounts for a certain order
+		// -----------------------------------------------------------------------------------
 		PreparedStatement osDiscs;
 		ResultSet rsetDiscs;
 		String discsQuery;
@@ -1201,8 +1157,10 @@ public final class DBNinja {
 		// Check if the rsetDiscs object is empty (i.e. there are NO discounts for the order)
 		if (rsetDiscs.isBeforeFirst() ) {
 			while (rsetDiscs.next()) {
-				Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"), rsetDiscs.getString("discount_DiscountName"),
-						rsetDiscs.getDouble("discount_Amount"), rsetDiscs.getBoolean("discount_IsPercent"));
+				Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"),
+						rsetDiscs.getString("discount_DiscountName"),
+						rsetDiscs.getDouble("discount_Amount"),
+						rsetDiscs.getBoolean("discount_IsPercent"));
 				discsList.add(nextDiscount);
 			}
 		}
@@ -1219,6 +1177,10 @@ public final class DBNinja {
 		 * 
 		 */
 		int pizzaID = p.getPizzaID();
+
+		// -----------------------------------------------------------------------------------
+		// Building SELECT statement to get all the discounts for a certain pizza
+		// -----------------------------------------------------------------------------------
 		PreparedStatement osDiscs;
 		ResultSet rsetDiscs;
 		String discsQuery;
@@ -1231,7 +1193,10 @@ public final class DBNinja {
 		// Check if the rsetDiscs object is empty (i.e. there are NO discounts for the pizza)
 		if (rsetDiscs.isBeforeFirst()) {
 			while (rsetDiscs.next()) {
-				Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"), rsetDiscs.getString("discount_DiscountName"), rsetDiscs.getDouble("discount_Amount"), rsetDiscs.getBoolean("discount_IsPercent"));
+				Discount nextDiscount = new Discount(rsetDiscs.getInt("discount_DiscountID"),
+						rsetDiscs.getString("discount_DiscountName"),
+						rsetDiscs.getDouble("discount_Amount"),
+						rsetDiscs.getBoolean("discount_IsPercent"));
 				discsList.add(nextDiscount);
 			}
 		}
@@ -1251,6 +1216,9 @@ public final class DBNinja {
 
 		double baseCustPrice = 0.0;
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement to get the base customer price for a size and crust type of pizza
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osBCP;
 			ResultSet rsetBCP;
 			String BCPQuery = "SELECT baseprice_CustPrice FROM baseprice WHERE baseprice_Size = ? AND baseprice_CrustType = ?;";
@@ -1280,6 +1248,9 @@ public final class DBNinja {
 
 		double baseBusPrice = 0.0;
 		try {
+			// -------------------------------------------------------------------------------------------
+			// Building SELECT statement to get the base customer price for a size and crust type of pizza
+			// -------------------------------------------------------------------------------------------
 			PreparedStatement osBCP;
 			ResultSet rsetBCP;
 			String BCPQuery = "SELECT baseprice_BusPrice FROM baseprice WHERE baseprice_Size = ? AND baseprice_CrustType = ?;";
@@ -1316,6 +1287,9 @@ public final class DBNinja {
 		System.out.printf("%-20s%s\n", "Topping", "Topping Count");
 		System.out.printf("%-20s%s\n", "-------", "-------------");
 
+		// -------------------------------------------------------------------------------------------
+		// Building SELECT statement to get all values from the ToppingPopularity view
+		// -------------------------------------------------------------------------------------------
 		String topPopView = "SELECT * FROM ToppingPopularity;";
 		PreparedStatement topPopQuery = conn.prepareStatement(topPopView);
 		ResultSet rsetTopPop = topPopQuery.executeQuery();
@@ -1344,6 +1318,9 @@ public final class DBNinja {
 		System.out.printf("%-20s%-20s%-20s%s\n", "Pizza Size", "Pizza Crust", "Profit", "Last Order Date");
 		System.out.printf("%-20s%-20s%-20s%s\n", "----------", "-----------", "------", "---------------");
 
+		// -------------------------------------------------------------------------------------------
+		// Building SELECT statement to get all values from the ProfitByPizza view
+		// -------------------------------------------------------------------------------------------
 		String profitPizzaView = "SELECT * FROM ProfitByPizza;";
 		PreparedStatement profitPizzaQuery = conn.prepareStatement(profitPizzaView);
 		ResultSet rsetProfitPizza = profitPizzaQuery.executeQuery();
@@ -1373,10 +1350,15 @@ public final class DBNinja {
 		System.out.printf("%-20s%-20s%-20s%-20s%s\n", "Customer Type", "Order Month", "Total Order Price", "Total Order Cost", "Profit");
 		System.out.printf("%-20s%-20s%-20s%-20s%s\n", "-------------", "-----------", "-----------------", "----------------", "------");
 
+		// -------------------------------------------------------------------------------------------
+		// Building SELECT statement to get all values from the ProfitByOrderType view
+		// -------------------------------------------------------------------------------------------
 		String profitOrderView = "SELECT * FROM ProfitByOrderType;";
 		PreparedStatement profitOrderQuery = conn.prepareStatement(profitOrderView);
 		ResultSet rsetProfitOrder = profitOrderQuery.executeQuery();
 		while (rsetProfitOrder.next()) {
+			// If this is the last row, then the customer type will be 'null', so leave blank
+			// Prints a grand total row with the first field left blank
 			if (rsetProfitOrder.getString(1) != null) {
 				System.out.printf("%-20s%-20s%-20.2f%-20.2f%.2f\n", rsetProfitOrder.getString(1), rsetProfitOrder.getString(2),
 						rsetProfitOrder.getDouble(3), rsetProfitOrder.getDouble(4), rsetProfitOrder.getDouble(5));
@@ -1431,3 +1413,58 @@ public final class DBNinja {
 
 
 }
+
+
+
+/*
+ // ==============================================================
+ // SWITCH statement for Dine-in, Pickup, and Delivery
+ // ===============================================================
+ switch (rset.getString("ordertable_OrderType")) {
+	 case dine_in:
+		 // Retrieving the extra values that are included in a Dine-in order
+		 PreparedStatement dine_os;
+		 ResultSet rsetDine;
+		 String dineQuery = "Select * From dinein Where ordertable_OrderID = ?;";
+		 dine_os = conn.prepareStatement(dineQuery);
+		 dine_os.setInt(1, orderID);
+		 rsetDine = dine_os.executeQuery();
+		 rsetDine.next();
+		 nextOrder = new DineinOrder(orderID, rset.getInt("customer_CustID"),
+				 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+				 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
+				 rsetDine.getInt("dinein_TableNum"));
+		 break;
+	 case pickup:
+		 // Retrieving the extra values that are included in a Pickup order
+		 PreparedStatement pickup_os;
+		 ResultSet rsetPick;
+		 String pickQuery = "Select * From pickup Where ordertable_OrderID = ?;";
+		 pickup_os = conn.prepareStatement(pickQuery);
+		 pickup_os.setInt(1, orderID);
+		 rsetPick = pickup_os.executeQuery();
+		 rsetPick.next();
+		 nextOrder = new PickupOrder(orderID, rset.getInt("customer_CustID"),
+				 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+				 rset.getDouble("ordertable_BusPrice"), rsetPick.getBoolean("pickup_IsPickedUp"),
+				 rset.getBoolean("ordertable_isComplete"));
+		 break;
+	 case delivery:
+		 // Retrieving the extra values that are included in a Delivery order
+		 PreparedStatement deliver_os;
+		 ResultSet rsetDeliv;
+		 String delivQuery = "Select * From delivery Where ordertable_OrderID = ?;";
+		 deliver_os = conn.prepareStatement(delivQuery);
+		 deliver_os.setInt(1, orderID);
+		 rsetDeliv = deliver_os.executeQuery();
+		 rsetDeliv.next();
+		 String address = rsetDeliv.getString("delivery_HouseNum") + "\t" + rsetDeliv.getString("delivery_Street") +
+				 "\t" + rsetDeliv.getString("delivery_City") + "\t" + rsetDeliv.getString("delivery_State") + "\t" +
+				 rsetDeliv.getString("delivery_Zip");
+		 nextOrder = new DeliveryOrder(orderID, rset.getInt("customer_CustID"),
+				 rset.getString("ordertable_OrderDateTime"), rset.getDouble("ordertable_CustPrice"),
+				 rset.getDouble("ordertable_BusPrice"), rset.getBoolean("ordertable_isComplete"),
+				 rsetDeliv.getBoolean("delivery_IsDelivered"), address);
+		 break;
+ }
+ */
