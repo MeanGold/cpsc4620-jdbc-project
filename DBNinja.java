@@ -574,51 +574,6 @@ public final class DBNinja {
 					 	 break;
 				 }
 
-				 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-				 // Getting all the pizzas for the order into a list
-				 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-				 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-				 PreparedStatement osPizzas;
-				 ResultSet rsetPizzas;
-				 String pizzasQuery;
-				 pizzasQuery = "Select * From pizza Where ordertable_OrderID = ?;";
-				 osPizzas = conn.prepareStatement(pizzasQuery);
-				 osPizzas.setInt(1, orderID);
-				 rsetPizzas = osPizzas.executeQuery();
-				 ArrayList<Pizza> pizzaList = new ArrayList<>();
-				 while (rsetPizzas.next()) {
-					 // New pizza object
-					 Pizza nextPizza = new Pizza(rsetPizzas.getInt("pizza_PizzaID"), rsetPizzas.getString("pizza_Size"),
-							 rsetPizzas.getString("pizza_CrustType"), rsetPizzas.getInt("ordertable_OrderID"),
-							 rsetPizzas.getString("pizza_PizzaState"), rsetPizzas.getString("pizza_PizzaDate"),
-							 rsetPizzas.getDouble("pizza_CustPrice"), rsetPizzas.getDouble("pizza_BusPrice"));
-
-					 /* ==============================================================
-					  * Getting toppings for each pizza
-					  * =============================================================== */
-					 int pizzaID = rsetPizzas.getInt("pizza_PizzaID");
-					 PreparedStatement osTops;
-					 ResultSet rsetTops;
-					 String topsQuery;
-					 topsQuery = "SELECT * FROM TOPPING JOIN PIZZA_TOPPING ON TOPPING.topping_TopID = PIZZA_TOPPING.topping_TopID\n" +
-							 "    JOIN PIZZA ON PIZZA_TOPPING.pizza_PizzaID = PIZZA.pizza_PizzaID WHERE PIZZA_TOPPING.pizza_PizzaID=?;";
-					 osTops = conn.prepareStatement(topsQuery);
-					 osTops.setInt(1, pizzaID);
-					 rsetTops = osTops.executeQuery();
-					 ArrayList<Topping> topsList = new ArrayList<>();
-					 while (rsetTops.next()) {
-						 Topping nextTopping = new Topping(rsetTops.getInt("topping_TopID"), rsetTops.getString("topping_TopName"), rsetTops.getDouble("topping_SmallAMT"),
-								 rsetTops.getDouble("topping_MedAMT"), rsetTops.getDouble("topping_LgAMT"), rsetTops.getDouble("topping_XLAMT"), rsetTops.getDouble("topping_CustPrice"),
-								 rsetTops.getDouble("topping_BusPrice"), rsetTops.getInt("topping_MinINVT"), rsetTops.getInt("topping_CurINVT"));
-						 // nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
-						 nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
-						 // System.out.println(rsetTops.getBoolean("pizza_topping_IsDouble"));
-						 topsList.add(nextTopping);
-					 }
-					 nextPizza.setToppings(topsList);
-
 				 /* ==============================================================
 				  * Retrieve and add all the pizzas for the order
 				  * =============================================================== */
@@ -727,7 +682,7 @@ public final class DBNinja {
 			PreparedStatement os;
 			ResultSet rset;
 			String query;
-			query = "Select customer_CustID, customer_FName, customer_LName, customer_PhoneNum From customer;";
+			query = "SELECT * FROM customer ORDER BY customer_LName;";
 			os = conn.prepareStatement(query);
 			rset = os.executeQuery();
 			while (rset.next()) {
@@ -743,7 +698,10 @@ public final class DBNinja {
 		return customerList;
     }
 
-	public static Customer findCustomerByPhone(String phoneNumber)  throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static Customer findCustomerByPhone(String phoneNumber)  throws SQLException, IOException
 	{
 		/*
 		 * Query the database for a customer using a phone number.
@@ -751,7 +709,26 @@ public final class DBNinja {
 		 * If it's not found....then return null
 		 *  
 		 */
-		 return null;
+		connect_to_db();
+		Customer myCustomer = null;
+		try {
+			PreparedStatement osCust;
+			ResultSet rsetCust;
+			String custQuery = "SELECT * FROM customer WHERE customer_PhoneNum = ?;";
+			osCust = conn.prepareStatement(custQuery);
+			osCust.setString(1, phoneNumber);
+			rsetCust = osCust.executeQuery();
+			// Check if the rsetCust object is empty (i.e. there are NO discounts with the specified name)
+			if (rsetCust.isBeforeFirst()) {
+				rsetCust.next();
+				myCustomer = new Customer(rsetCust.getInt("customer_CustID"), rsetCust.getString("customer_FName"), rsetCust.getString("customer_LName"), rsetCust.getString("customer_PhoneNum"));
+
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		conn.close();
+		return myCustomer;
 	}
 
 	// *****************************************************************************************************************
@@ -819,7 +796,10 @@ public final class DBNinja {
 	}
 
 
-	public static ArrayList<Topping> getToppingList() throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static ArrayList<Topping> getToppingList() throws SQLException, IOException
 	{
 		/*
 		 * Query the database for the aviable toppings and 
@@ -827,10 +807,34 @@ public final class DBNinja {
 		 * Don't forget to order the data coming from the database appropriately.
 		 * 
 		 */
-		return null;
+		connect_to_db();
+
+		ArrayList<Topping> toppingList = new ArrayList<>();
+		try {
+			PreparedStatement osTops;
+			ResultSet rsetTops;
+			String topsQuery = "SELECT * FROM topping ORDER BY topping_TopName;";
+			osTops = conn.prepareStatement(topsQuery);
+			rsetTops = osTops.executeQuery();
+			while (rsetTops.next()) {
+				Topping nextTopping = new Topping(rsetTops.getInt("TOPPING.topping_TopID"), rsetTops.getString("topping_TopName"), rsetTops.getDouble("topping_SmallAMT"),
+						rsetTops.getDouble("topping_MedAMT"), rsetTops.getDouble("topping_LgAMT"), rsetTops.getDouble("topping_XLAMT"), rsetTops.getDouble("topping_CustPrice"),
+						rsetTops.getDouble("topping_BusPrice"), rsetTops.getInt("topping_MinINVT"), rsetTops.getInt("topping_CurINVT"));
+
+				toppingList.add(nextTopping);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+			// process the error or re-raise the exception to a higher level
+		}
+		conn.close();
+		return toppingList;
 	}
 
-	public static Topping findToppingByName(String name) throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static Topping findToppingByName(String name) throws SQLException, IOException
 	{
 		/*
 		 * Query the database for the topping using it's name.
@@ -838,17 +842,61 @@ public final class DBNinja {
 		 * If it's not found....then return null
 		 *  
 		 */
-		 return null;
+		connect_to_db();
+
+		Topping myTopping = null;
+		try {
+			PreparedStatement osTop;
+			ResultSet rsetTop;
+			String topQuery = "SELECT * FROM topping WHERE topping_TopName = ?;";
+			osTop = conn.prepareStatement(topQuery);
+			osTop.setString(1, name);
+			rsetTop = osTop.executeQuery();
+			if (rsetTop.isBeforeFirst()) {
+				rsetTop.next();
+				myTopping = new Topping(rsetTop.getInt("TOPPING.topping_TopID"), rsetTop.getString("topping_TopName"), rsetTop.getDouble("topping_SmallAMT"),
+						rsetTop.getDouble("topping_MedAMT"), rsetTop.getDouble("topping_LgAMT"), rsetTop.getDouble("topping_XLAMT"), rsetTop.getDouble("topping_CustPrice"),
+						rsetTop.getDouble("topping_BusPrice"), rsetTop.getInt("topping_MinINVT"), rsetTop.getInt("topping_CurINVT"));
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+			// process the error or re-raise the exception to a higher level
+		}
+		conn.close();
+		return myTopping;
 	}
 
-	public static ArrayList<Topping> getToppingsOnPizza(Pizza p) throws SQLException, IOException 
+	// *****************************************************************************************************************
+	// COMPLETE
+	// *****************************************************************************************************************
+	public static ArrayList<Topping> getToppingsOnPizza(Pizza p) throws SQLException, IOException
 	{
 		/* 
 		 * This method builds an ArrayList of the toppings ON a pizza.
 		 * The list can then be added to the Pizza object elsewhere in the
 		 */
+		/* ==============================================================
+		 * Getting toppings for each pizza
+		 * =============================================================== */
+		int pizzaID = p.getPizzaID();
+		PreparedStatement osTops;
+		ResultSet rsetTops;
+		String topsQuery;
+		topsQuery = "SELECT * FROM topping JOIN pizza_topping ON topping.topping_TopID = pizza_topping.topping_TopID\n" +
+				"    JOIN pizza ON pizza_topping.pizza_PizzaID = pizza.pizza_PizzaID WHERE pizza_topping.pizza_PizzaID=?;";
+		osTops = conn.prepareStatement(topsQuery);
+		osTops.setInt(1, pizzaID);
+		rsetTops = osTops.executeQuery();
+		ArrayList<Topping> topsList = new ArrayList<>();
+		while (rsetTops.next()) {
+			Topping nextTopping = new Topping(rsetTops.getInt("topping_TopID"), rsetTops.getString("topping_TopName"), rsetTops.getDouble("topping_SmallAMT"),
+					rsetTops.getDouble("topping_MedAMT"), rsetTops.getDouble("topping_LgAMT"), rsetTops.getDouble("topping_XLAMT"), rsetTops.getDouble("topping_CustPrice"),
+					rsetTops.getDouble("topping_BusPrice"), rsetTops.getInt("topping_MinINVT"), rsetTops.getInt("topping_CurINVT"));
 
-		return null;	
+			nextTopping.setDoubled(rsetTops.getBoolean("pizza_topping_IsDouble"));
+			topsList.add(nextTopping);
+		}
+		return topsList;
 	}
 
 	public static void addToInventory(int toppingID, double quantity) throws SQLException, IOException 
