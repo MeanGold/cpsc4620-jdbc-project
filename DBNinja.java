@@ -1149,6 +1149,17 @@ public final class DBNinja {
 		 * better.
 		 * 
 		 */
+		connect_to_db();
+		System.out.printf("%-20s%s\n", "Topping", "Topping Count");
+		System.out.printf("%-20s%s\n", "-------", "-------------");
+
+		String topPopView = "SELECT * FROM ToppingPopularity;";
+		PreparedStatement topPopQuery = conn.prepareStatement(topPopView);
+		ResultSet rsetTopPop = topPopQuery.executeQuery();
+		while (rsetTopPop.next()) {
+			System.out.printf("%-20s%s\n", rsetTopPop.getString("Topping"), rsetTopPop.getInt("ToppingCount"));
+		}
+		conn.close();
 	}
 	
 	public static void printProfitByPizzaReport() throws SQLException, IOException 
@@ -1166,6 +1177,18 @@ public final class DBNinja {
 		 * better.
 		 * 
 		 */
+		connect_to_db();
+		System.out.printf("%-20s%-20s%-20s%s\n", "Pizza Size", "Pizza Crust", "Profit", "Last Order Date");
+		System.out.printf("%-20s%-20s%-20s%s\n", "----------", "-----------", "------", "---------------");
+
+		String profitPizzaView = "SELECT * FROM ProfitByPizza;";
+		PreparedStatement profitPizzaQuery = conn.prepareStatement(profitPizzaView);
+		ResultSet rsetProfitPizza = profitPizzaQuery.executeQuery();
+		while (rsetProfitPizza.next()) {
+			System.out.printf("%-20s%-20s%-20.2f%s\n", rsetProfitPizza.getString(1), rsetProfitPizza.getString(2),
+					rsetProfitPizza.getDouble(3), rsetProfitPizza.getString(4));
+		}
+		conn.close();
 	}
 	
 	public static void printProfitByOrderTypeReport() throws SQLException, IOException
@@ -1183,6 +1206,23 @@ public final class DBNinja {
 		 * better.
 		 * 
 		 */
+		connect_to_db();
+		System.out.printf("%-20s%-20s%-20s%-20s%s\n", "Customer Type", "Order Month", "Total Order Price", "Total Order Cost", "Profit");
+		System.out.printf("%-20s%-20s%-20s%-20s%s\n", "-------------", "-----------", "-----------------", "----------------", "------");
+
+		String profitOrderView = "SELECT * FROM ProfitByOrderType;";
+		PreparedStatement profitOrderQuery = conn.prepareStatement(profitOrderView);
+		ResultSet rsetProfitOrder = profitOrderQuery.executeQuery();
+		while (rsetProfitOrder.next()) {
+			if (rsetProfitOrder.getString(1) != null) {
+				System.out.printf("%-20s%-20s%-20.2f%-20.2f%.2f\n", rsetProfitOrder.getString(1), rsetProfitOrder.getString(2),
+						rsetProfitOrder.getDouble(3), rsetProfitOrder.getDouble(4), rsetProfitOrder.getDouble(5));
+			} else {
+				System.out.printf("%-20s%-20s%-20.2f%-20.2f%.2f\n", "", rsetProfitOrder.getString(2),
+						rsetProfitOrder.getDouble(3), rsetProfitOrder.getDouble(4), rsetProfitOrder.getDouble(5));
+			}
+		}
+		conn.close();
 	}
 	
 	
