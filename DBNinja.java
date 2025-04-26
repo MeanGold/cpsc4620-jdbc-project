@@ -339,17 +339,6 @@ public final class DBNinja {
 			 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			 // --------------------------------------------------------------------------------------------------------
 
-		 String insertCust = "INSERT INTO customer VALUES(?, ?, ?, ?);";
-		 PreparedStatement stmtCust = conn.prepareStatement(insertCust);
-		 // ---------------------------------------------------------------------------------
-		 // Excluding orderID so that it auto increments and assigns the next value
-		 // ---------------------------------------------------------------------------------
-
-		 stmtCust.setInt(1, c.getCustID());
-		 stmtCust.setString(2, c.getFName());
-		 stmtCust.setString(3, c.getLName());
-		 stmtCust.setString(4, c.getPhone());
-		 stmtCust.executeUpdate();
 			 // ---------------------------------------------------------------------------------
 			 // Building INSERT statement for customer
 			 // ---------------------------------------------------------------------------------
@@ -381,13 +370,6 @@ public final class DBNinja {
 		 * 
 		 */
 		connect_to_db();
-		switch (newState) {
-			case PREPARED:
-				// Marking order as "COMPLETE"
-				String completeOrder = "UPDATE ordertable SET ordertable_isComplete = 1 WHERE ordertable_OrderID = ?;";
-				PreparedStatement completeOrdStmt = conn.prepareStatement(completeOrder);
-				completeOrdStmt.setInt(1, OrderID);
-				completeOrdStmt.executeUpdate();
 		try {
 			switch (newState) {
 				case PREPARED:
@@ -433,6 +415,79 @@ public final class DBNinja {
 		conn.close();
 	}
 
+	public static Order convertOrderToType(ArrayList<Object> list) throws SQLException, IOException
+	{
+		/* Helper function for the getOrder functions
+		 * Returns an Order object cast into the appropriate Order subtype: dinein, pickup, or delivery
+		 *
+		 * Populates each subtype with the appropriate information for the order
+		 * Must be called from function with active database connection
+		 *
+		 */
+		// Variable for return statement
+		Order newOrder = null;
+		// --------------------------------------------------------------------------------------
+		// SWITCH statement for dinein, pickup, and delivery
+		// --------------------------------------------------------------------------------------
+		try {
+			int OrderID = (int) list.get(0);
+			switch ((String) list.get(2)) {
+				case dine_in:
+					// ------------------------------------------------------------------------------
+					// Retrieving the extra values that are included in a dinein order
+					// ------------------------------------------------------------------------------
+					PreparedStatement dine_os;
+					ResultSet rsetDine;
+					String dineQuery = "SELECT * FROM dinein WHERE ordertable_OrderID = ?;";
+					dine_os = conn.prepareStatement(dineQuery);
+					dine_os.setInt(1, OrderID);
+					rsetDine = dine_os.executeQuery();
+					rsetDine.next();
+
+					newOrder = new DineinOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
+							(double) list.get(5), (Boolean) list.get(6), rsetDine.getInt("dinein_TableNum"));
+					break;
+				case pickup:
+					// ------------------------------------------------------------------------------
+					// Retrieving the extra values that are included in a pickup order
+					// ------------------------------------------------------------------------------
+					PreparedStatement pickup_os;
+					ResultSet rsetPick;
+					String pickQuery = "SELECT * FROM pickup WHERE ordertable_OrderID = ?;";
+					pickup_os = conn.prepareStatement(pickQuery);
+					pickup_os.setInt(1, OrderID);
+					rsetPick = pickup_os.executeQuery();
+					rsetPick.next();
+
+					newOrder = new PickupOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
+							(double) list.get(5), rsetPick.getBoolean("pickup_IsPickedUp"), (Boolean) list.get(6));
+					break;
+				case delivery:
+					// ------------------------------------------------------------------------------
+					// Retrieving the extra values that are included in a delivery order
+					// ------------------------------------------------------------------------------
+					PreparedStatement deliver_os;
+					ResultSet rsetDeliv;
+					String delivQuery = "SELECT * FROM delivery WHERE ordertable_OrderID = ?;";
+					deliver_os = conn.prepareStatement(delivQuery);
+					deliver_os.setInt(1, OrderID);
+					rsetDeliv = deliver_os.executeQuery();
+					rsetDeliv.next();
+					String address = rsetDeliv.getString("delivery_HouseNum") + "\t" +
+							rsetDeliv.getString("delivery_Street") + "\t" +
+							rsetDeliv.getString("delivery_City") + "\t" +
+							rsetDeliv.getString("delivery_State") + "\t" +
+							rsetDeliv.getString("delivery_Zip");
+
+					newOrder = new DeliveryOrder(OrderID, (int) list.get(1), (String) list.get(3), (double) list.get(4),
+							(double) list.get(5), (Boolean) list.get(6), rsetDeliv.getBoolean("delivery_IsDelivered"), address);
+					break;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return newOrder;
+	}
 
 	// *****************************************************************************************************************
 	// REWORKED
@@ -530,10 +585,19 @@ public final class DBNinja {
 								 rsetDeliv.getBoolean("delivery_IsDelivered"), address);
 						 break;
 				 }
+				 /*ArrayList<Object> orderAttributes = new ArrayList<>();
+				 orderAttributes.add(orderID);
+				 orderAttributes.add(rset.getInt("customer_CustID"));
+				 orderAttributes.add(rset.getString("ordertable_OrderType"));
+				 orderAttributes.add(rset.getString("ordertable_OrderDateTime"));
+				 orderAttributes.add(rset.getDouble("ordertable_CustPrice"));
+				 orderAttributes.add(rset.getDouble("ordertable_BusPrice"));
+				 orderAttributes.add(rset.getBoolean("ordertable_isComplete"));*/
 
 				 /* ==============================================================
 				  * Retrieve and add all the pizzas for the order
 				  * =============================================================== */
+				 // nextOrder = convertOrderToType(orderAttributes);
 				 // ------------------------------------------------------------------
 				 // Retrieve and add all the pizzas for the order
 				 // ------------------------------------------------------------------
@@ -628,10 +692,19 @@ public final class DBNinja {
 							rsetDeliv.getBoolean("delivery_IsDelivered"), address);
 					break;
 			}
+			/*ArrayList<Object> orderAttributes = new ArrayList<>();
+			orderAttributes.add(orderID);
+			orderAttributes.add(rset.getInt("customer_CustID"));
+			orderAttributes.add(rset.getString("ordertable_OrderType"));
+			orderAttributes.add(rset.getString("ordertable_OrderDateTime"));
+			orderAttributes.add(rset.getDouble("ordertable_CustPrice"));
+			orderAttributes.add(rset.getDouble("ordertable_BusPrice"));
+			orderAttributes.add(rset.getBoolean("ordertable_isComplete"));*/
 
 			/* ==============================================================
 			 * Retrieve and add all the pizzas for the order
 			 * =============================================================== */
+			// lastOrder = convertOrderToType(orderAttributes);
 			// ------------------------------------------------------------------
 			// Retrieve and add all the pizzas for the order
 			// ------------------------------------------------------------------
@@ -679,6 +752,17 @@ public final class DBNinja {
 				 /* ==============================================================
 				  * SWITCH statement for Dine-in, Pickup, and Delivery
 				  * =============================================================== */
+				 /*ArrayList<Object> orderAttributes = new ArrayList<>();
+				 orderAttributes.add(orderID);
+				 orderAttributes.add(rset.getInt("customer_CustID"));
+				 orderAttributes.add(rset.getString("ordertable_OrderType"));
+				 orderAttributes.add(rset.getString("ordertable_OrderDateTime"));
+				 orderAttributes.add(rset.getDouble("ordertable_CustPrice"));
+				 orderAttributes.add(rset.getDouble("ordertable_BusPrice"));
+				 orderAttributes.add(rset.getBoolean("ordertable_isComplete"));*/
+
+				 // nextOrder = convertOrderToType(orderAttributes);
+				 /*
 				 // ==============================================================
 				 // SWITCH statement for Dine-in, Pickup, and Delivery
 				 // ===============================================================
@@ -729,6 +813,7 @@ public final class DBNinja {
 								 rsetDeliv.getBoolean("delivery_IsDelivered"), address);
 					 	 break;
 				 }
+				 */
 
 				 /* ==============================================================
 				  * Retrieve and add all the pizzas for the order
